@@ -1,0 +1,39 @@
+---
+title: "Carlos_Parra MovieLens Project"
+author: "Carlos Parra"
+date: "10/21/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Movie Ratings Prediction
+## Introduction
+This docouments uses the code provided in the _Capstone section_ to generate the training (edx) and test (validation) datasets obtained from Movielens 10M dataset.
+Next libraries will be used to generate the rating
+* library(tidyverse)
+* library(caret)
+* library(data.table)
+## Movie Prediction
+In order to optimize the movie prediction, I will combine several Machine Learning algorithms  learned during the training  to optimize the result (minimize **root mean squared error- RMSE**)
+1. Baseline Preducors
+2. Regularization
+
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
