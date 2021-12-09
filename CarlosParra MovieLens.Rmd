@@ -5,8 +5,11 @@ date: "10/21/2021"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+tinytex::install_tinytex()
+# to uninstall TinyTeX, run
+# tinytex::uninstall_tinytex()
 ```
 
 # Movie Ratings Prediction
@@ -26,7 +29,7 @@ Next libraries were be used to generate the rating
 
 ## Data
 The dataset edx will be splitted in train_set and test_set to develop and test the algorithm; the validation dataset will be used to evaluate the RMSE of the final algorithm.  edx and validation datasets are generated using the e code provided in the _Capstone section_ using Movielens 10M dataset.
-``` {r data_generation, echo = FALSE}
+``` {r data_generation,  message=FALSE, warning=FALSE}
 # Note: this process could take a couple of minutes
 
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
@@ -65,7 +68,9 @@ movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(movieId),
 movielens <- left_join(ratings, movies, by = "movieId")
 
 # Validation set will be 10% of MovieLens data
-set.seed(1, sample.kind="Rounding") # if using R 3.5 or earlier, use `set.seed(1)`
+set.seed(1, sample.kind="Rounding")
+
+
 test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
 edx <- movielens[-test_index,]
 temp <- movielens[test_index,]
@@ -81,9 +86,11 @@ edx <- rbind(edx, removed)
 
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
 ```
-Slpit edx dataset into separate training and test sets.
-``` {r split_edx, echo = FALSE}
-#split edx in test and train datasets
+
+Split edx dataset into separate training and test sets.
+``` {r split_edx,  message=FALSE, warning=FALSE}
+
+# split edx in test and train datasets
 test_index <- createDataPartition(edx$rating, times = 1, p = 0.5, list = FALSE)
 train_set <- edx %>% slice(-test_index)
 test_set <- edx %>% slice(test_index)
@@ -101,22 +108,22 @@ The chosen predictors are:
 3. frequency rating peruser 
 According to Koren (2) the number of ratings a user gave on a specific time explains a portion of the variability of the data during that time. The Frequency Fui is the overall number of ratings that user u gave on week tui. 
 4. week. Variable generated using TimeStamp. The trend line shows that the rates decline over time
-``` {r week_variable, echo = FALSE}
-#generate predictor week
+``` {r week_variable,  message=FALSE, warning=FALSE}
+#generate predictor day
 train_set<- train_set %>% 
   mutate(day = round_date(as_datetime(timestamp), unit = "day"))
 ```` 
 The number of unique userIds (n_users), movieIds (n_movies), and weeks (n_weeks) are:
-``` {r size_predictors, echo = FALSE}
+``` {r size_predictors,  message=FALSE, warning=FALSE}
 # Identify unique number of predictors (movie, user, time (weeks))
 train_set %>% 
   summarize(n_users = n_distinct(userId),
               n_movies = n_distinct(movieId),
-            n_weeks = n_distinct(week))
+            n_dayss = n_distinct(day))
 ```` 
 The interactions between users, movies and weeks produce different rating values due to the effect associated with the movie, user or week independently.
 Next graphics represent the dispersion of the average rate (avg_rate) versus the predictors.
-``` {r predictor_avgrate, echo = FALSE}
+``` {r predictor_avgrate,  message=FALSE, warning=FALSE}
 # grahpich avg_rate versus predictors
 train_set %>% 
   group_by(movieId) %>% 
@@ -130,26 +137,25 @@ train_set %>%
   arrange(desc(avg_rate)) %>%
   ggplot(aes(userId,avg_rate)) + 
   geom_point()
-#Calculate User rating fequency per time (week divided by 7)
+#Calculate User rating fequency per day
 f_ut<-train_set %>% 
   group_by(userId) %>%
-  group_by(week) %>%
-  summarize(f_ut=abs(log(n()/7,base=7)))
+  group_by(day) %>%
+  summarize(f_ut=abs(log(n(),base=10000)))
 f_ut %>%
-  ggplot(aes(week,f_ut)) + 
+  ggplot(aes(day,f_ut)) + 
   geom_point() 
 train_set %>% 
-  group_by(week) %>% 
+  group_by(day) %>% 
   summarize(avg_rate=mean(rating)) %>%
   arrange(desc(avg_rate)) %>%
-  ggplot(aes(week,avg_rate)) +
-  geom_smooth(method=lm) +
-  geom_point()
+  ggplot(aes(day,avg_rate)) +
+    geom_point()
 ```` 
 
 ## Movie Prediction Algoritm
 In order to optimize the movie prediction a combination of Machine Learning models will be used  to optimize the result (minimize **root mean squared error- RMSE** between the predicted rating and the actual rating)
-``` {r rmse_function, echo = FALSE}
+``` {r rmse_function, message=FALSE, warning=FALSE}
 #function that computes the Residual Means Squared Error for a vector of ratings and their corresponding predictors
 RMSE <- function(true_ratings, predicted_ratings){                                         
   sqrt(mean((true_ratings - predicted_ratings)^2))
@@ -165,7 +171,7 @@ Estimate Mu as the average rating for all movies and users
     $Y_{u,i} = \mu + \espilon_{u,i}$
 Epsilon represents independent errors sampled for the same distribution centered at zero; it explains the remaining variability
 Predict the same rating for all movies using an average rating (Mu) for all movies and users. 
-``` {r estimate_Mu, echo = FALSE}
+``` {r estimate_Mu,  message=FALSE, warning=FALSE}
 # Estimate RMSE using Mu (average rating of all movies across all users)
 mu<-mean(train_set$rating)
 predicted_ratings<-mu
@@ -185,7 +191,7 @@ b_i is estimated as the average rating for movie i.
    $Y_{u,i} = \mu + b_{i} + \espilon_{u,i}$
 Calculate b_i average rating per movie i.
     $b_{i} = Y_{u_i} - \mu$
-``` {r estimate_bi, echo = FALSE}
+``` {r estimate_bi,  message=FALSE, warning=FALSE}
 # Estimate RMSE using b_i and mu
 b_i <- train_set %>% 
      group_by(movieId) %>% 
@@ -209,8 +215,8 @@ rmse_results %>% knitr::kable()
 b_u is estimated by taking the average of the residuals obtained after removing the overall mean and the movie effect from the rating y_ui 
     $Y_{u,i} = \mu + b_{i} + b_{u} + \espilon_{u,i}$
 Calculate the user specific effect b_u per user u
-    $b_{u} = Y_{u_i} - b_{i} \mu$
-``` {r estimate_bu, echo = FALSE}
+    $b_{u} = Y_{u_i} - \mu - b_{i}$
+``` {r estimate_bu,  message=FALSE, warning=FALSE}
 # Estimate RMSE using b_i and b_u
 b_u <- train_set %>% 
      left_join(b_i, by='movieId') %>%
@@ -238,14 +244,15 @@ $f_{ut}$ is driven by user u, and it influences the item-biases:
     $Y_{u,i} = \mu + b_{i} - b_{i}*f_{ut} + \espilon_{u,i}$
     $b_{i} = (Y_{u_i} - \mu)/(1-f_{ut})$
 Notes on $f_{ut}$
-. The chosen base for the logarithm is 7, it produces the best RMSE.
-. I also performed simulations in the denominator of $f_{ut} ($b_{i} equation)  to optimize RMSE; the best number identified was 150
-``` {r estimate_bu, echo = FALSE}
+. The formula was fined tuned to optimize RMSE: 
+    The chosen base for the logarithm is 10000 to optimize the RMSE.
+    The chosen denominator of $f_{ut} to estimated $b_{i} was 1000
+``` {r estimate_fut,  message=FALSE, warning=FALSE}
 # Estimate RMSE using b_i andjusted by f_ut. and b_u
 b_i <- train_set %>%
-  left_join(f_ut,by="week") %>%
+  left_join(f_ut,by="day") %>%
   group_by(movieId) %>% 
-  summarize(b_i = mean(rating - mu)/(1 - mean(f_ut )/150)) 
+  summarize(b_i = mean(rating - mu)/(1 - mean(f_ut )/1000)) 
 b_u <- train_set %>% 
   left_join(b_i, by='movieId') %>%
   group_by(userId) %>%
@@ -257,16 +264,89 @@ predicted_ratings<-test_set %>%
   .$pred
 rmse4<-RMSE(test_set$rating,predicted_ratings)
 difference<-rmse4-rmse3
-rmse_results <-bind_rows(rmse_results,tibble(method = "Movie adjusted by user rating, frequency, and User Effect Model", RMSE = rmse2, Difference = difference) )
+rmse_results <-bind_rows(rmse_results,tibble(method = "Movie adjusted by frequency and  User Model", RMSE = rmse4, Difference = difference) )
 rmse_results %>% knitr::kable()    
 ``` 
+I will discard this method because the improvement was negligible; there could be other potential formulas to combine frequency with b_i that produce relevant reductions as indicated by Koren. 
 
 1.5 Add the **time effect**. 
-Y_ui=Mu+b_1+b_u+b_t+ Epsilon_u,i
-Calculate the time effect b_t per week w and user y and movie i
+The graphic in the section Predictors shows that ratings reduce over time, I introduce the variable b_t to capture this effect
+    $Y_{u,i} = \mu + b_{i} + b_{u} + b_{t} + \espilon_{u,i}$
+Calculate the user specific effect b_u per user u
+    $b_{t} = Y_{u_i} - \mu - b_{i} - b_{u}$
+Calculate the time effect b_t per day and 
+``` {r estimate_bt,  message=FALSE, warning=FALSE}
+# Estimate RMSE using b_t, b_u, b_i and mu
+b_i <- train_set %>% 
+     group_by(movieId) %>% 
+     summarize(b_i = mean(rating - mu)) 
+b_u <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = mean(rating - b_i - mu))
+# add day variable to tes_set to generate b_t
+test_set<- test_set %>% 
+  mutate(day = round_date(as_datetime(timestamp), unit = "day"))
+b_t <- train_set %>%
+  left_join(b_i, by='movieId') %>%
+  left_join(b_u, by='userId') %>%
+  group_by(day) %>%
+  summarize(b_t = mean(rating - mu - b_i - b_u))
+
+predicted_ratings <-  test_set %>% 
+  left_join(b_i, by = "movieId") %>%
+  left_join(b_u, by = "userId") %>%
+  left_join(b_t, by = "day") %>%
+  mutate(pred = ifelse(is.na(mu + b_i + b_u + b_t),mu + b_i +b_u,mu + b_i + b_u + b_t   )) %>%
+  .$pred
+rmse5 <- RMSE(predicted_ratings, test_set$rating)
+difference<-rmse5-rmse3
+rmse_results <-bind_rows(rmse_results,tibble(method = "Movie,User, and Time Model", RMSE = rmse5, Difference = difference) )
+rmse_results %>% knitr::kable()  
+```
 
 
 2. **Regularization** -  penalize large estimates that come from small sample sizes 
+The algorithms described in prior section give the same weight to any estimate regardless of the size of the sample. The total variability generated by the effect of the size  can be inhibited by penalizing large estimates that come from sample samples, similar to th Bayesian approach to shrunk predictions. A penalty term is added to the equation:
+    $\frac(1)(n)\sum_(u,i)\left(y_{u,i} - \mu - b_{i} - b_{u} - b_{t}\right)^(2) = \lambda \left( \sum_{i} b_{i}^(2) + \sum_{u} b_{u}^(2) + \sum_{t} b_{t}^(2) \right)$
+Next routine will identify the optimal lambda in the range 0, 10 with 0.25 increments
+
+``` {r estimate_lambda,  message=FALSE, warning=FALSE}
+lambdas <- seq(0,10, 0.25)
+rmses <- sapply(lambdas, function(l){
+  b_i <- train_set %>%
+    group_by(movieId) %>%
+    summarize(b_i = sum(rating - mu)/(n()+l))
+ 
+  b_u <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    group_by(userId) %>%
+    summarize(b_u = sum(rating - b_i - mu)/(n()+l))
+  
+  b_t <- train_set %>%
+    left_join(b_i, by='movieId') %>%
+    left_join(b_u, by='userId') %>%
+    group_by(day) %>%
+    summarize(b_t = sum(rating - mu - b_i - b_u)/(n()+l))
+  predicted_ratings <- 
+    test_set %>% 
+    left_join(b_i, by = "movieId") %>%
+    left_join(b_u, by = "userId") %>%
+    left_join(b_t, by = "day") %>%
+    mutate(pred = ifelse(is.na(mu + b_i + b_u + b_t),mu + b_i +b_u,mu + b_i + b_u + b_t   )) %>%
+    .$pred
+  return(RMSE(predicted_ratings, test_set$rating))
+})
+qplot(lambdas, rmses)  
+lambda <- lambdas[which.min(rmses)]
+rmse6<- min(rmses)
+difference<-rmse6-rmse5
+rmse_results <-bind_rows(rmse_results,tibble(method = "Regularized Movie, User, and and Time Model", RMSE = rmse6, Difference = difference) )
+rmse_results %>% knitr::kable() 
+
+```
+
+.
 bhat_i(lambda)=(1/(lambda+ni))*sum[u-1,n_i](Y_u,i-Muhat)
 where n_i is the number of ratings made for movie i.
 When n_i is very large, which will give us a stable estimate, then lambda is effectively ignored because n_i plus lambda is about equal to n_i.
@@ -281,7 +361,7 @@ lambda is a tuning parameter, cross-validation will be used to select the number
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r cars}
-summary(cars)
+# summary(cars)
 ```
 
 ## Including Plots
@@ -292,10 +372,10 @@ Histogram user rating (count)
 Histogram ratings through
 
 ```{r pressure, echo=FALSE}
-plot(pressure)
+# plot(pressure)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
 
 ## References
 1. Irizarry, Rafael A (2021-07-03). Introduction to Data Science Data Analysis and Prediction Algorithms with R
