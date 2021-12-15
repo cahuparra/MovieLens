@@ -1,11 +1,4 @@
-## ----setup, message=FALSE, warning=FALSE, echo=FALSE------------------------
-# required to activate tinytex (Knit requirement)
-# tinytex::install_tinytex()   
-# to uninstall TinyTeX, run
-# tinytex::uninstall_tinytex()
-
-
-## ----dataset_generation,  message=FALSE, warning=FALSE----------------------
+## ----dataset_generation,  message=FALSE, warning=FALSE-----------------------------------------------------------------------------------------------------------
 # Note: this process could take a couple of minutes
 
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
@@ -63,7 +56,7 @@ edx <- rbind(edx, removed)
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
 
-## ----generate_datasets, message=FALSE, warning=FALSE------------------------
+## ----generate_datasets, message=FALSE, warning=FALSE-------------------------------------------------------------------------------------------------------------
 # split edc into test and tratin datasets
 test_index <- createDataPartition(edx$rating, times = 1, p = 0.5, list =  FALSE)
 train_set <- edx %>% slice(-test_index)
@@ -71,13 +64,13 @@ test_set <- edx %>% slice(test_index)
 
 
 
-## ----calculate_day, message=FALSE, warning=FALSE----------------------------
+## ----calculate_day, message=FALSE, warning=FALSE-----------------------------------------------------------------------------------------------------------------
 # generate predictor day
 train_set<- train_set %>% 
   mutate(day = round_date(as_datetime(timestamp), unit = "day"))
 
 
-## ----size_predictors, message=FALSE, warning=FALSE--------------------------
+## ----size_predictors, message=FALSE, warning=FALSE---------------------------------------------------------------------------------------------------------------
 
 # Identify unique number of predictors: movie, user, time (days)
 
@@ -87,7 +80,7 @@ train_set %>%
             n_days = n_distinct(day))
 
 
-## ----predictor_avgrate,  message=FALSE, warning=FALSE-----------------------
+## ----predictor_avgrate,  message=FALSE, warning=FALSE------------------------------------------------------------------------------------------------------------
 # graphic avg_rate versus predictors
 train_set %>% 
   group_by(movieId) %>% 
@@ -134,7 +127,7 @@ train_set %>%
   
 
 
-## ----rmse_function, message=FALSE, warning=FALSE----------------------------
+## ----rmse_function, message=FALSE, warning=FALSE-----------------------------------------------------------------------------------------------------------------
 #function that computes the Residual Means Squared Error for a vector 
 # of ratings and their corresponding predictors
 RMSE <- function(true_ratings, predicted_ratings){                                         
@@ -142,7 +135,7 @@ RMSE <- function(true_ratings, predicted_ratings){
 }
 
 
-## ----estimate_Mu,  message=FALSE, warning=FALSE-----------------------------
+## ----estimate_Mu,  message=FALSE, warning=FALSE------------------------------------------------------------------------------------------------------------------
 # Estimate RMSE using Mu (average rating of all movies across all users)
 mu<-mean(train_set$rating)
 predicted_ratings<-mu
@@ -157,7 +150,7 @@ rmse_results %>% knitr::kable()
 
 
 
-## ----estimate_bi,  message=FALSE, warning=FALSE-----------------------------
+## ----estimate_bi,  message=FALSE, warning=FALSE------------------------------------------------------------------------------------------------------------------
 # Estimate RMSE using b_i and mu
 b_i <- train_set %>% 
      group_by(movieId) %>% 
@@ -165,9 +158,9 @@ b_i <- train_set %>%
 
 b_i%>% ggplot(aes(b_i)) + 
   geom_histogram( bins=30,color="gray") +
-  ggtitle("Histogram average Movie rating") +
-  labs(subtitle  ="number of ratings by movieId", 
-       x="movieId" , 
+  ggtitle("Histogram average ratings for movie (b_i)") +
+  labs(subtitle  ="", 
+       x="b_i" , 
        y="number of ratings", 
        caption ="source data : train set")
 
@@ -184,7 +177,7 @@ rmse_results %>% knitr::kable()
 
 
 
-## ----estimate_bu,  message=FALSE, warning=FALSE-----------------------------
+## ----estimate_bu,  message=FALSE, warning=FALSE------------------------------------------------------------------------------------------------------------------
 # Estimate RMSE using b_i and b_u
 b_u <- train_set %>% 
      left_join(b_i, by='movieId') %>%
@@ -193,9 +186,9 @@ b_u <- train_set %>%
 
 b_u%>% ggplot(aes(b_u)) + 
   geom_histogram( bins=30, color = "gray") +
-  ggtitle("Histogram average User rating") +
-  labs(subtitle  ="number of ratings by userId", 
-       x="userId" , 
+  ggtitle("Histogram user specific effect (b_u)") +
+  labs(subtitle  ="", 
+       x="b_u" , 
        y="number of ratings", 
        caption ="source data : train set")
 
@@ -211,7 +204,7 @@ rmse_results <-bind_rows(rmse_results,tibble(method = "Movie and User Effect Mod
 rmse_results %>% knitr::kable()    
 
 
-## ----estimate_fut,  message=FALSE, warning=FALSE----------------------------
+## ----estimate_fut,  message=FALSE, warning=FALSE-----------------------------------------------------------------------------------------------------------------
 # Estimate RMSE using b_i andjusted by f_ut. and b_u
 b_i <- train_set %>%
   left_join(f_ut,by="day") %>%
@@ -232,7 +225,7 @@ rmse_results <-bind_rows(rmse_results,tibble(method = "Movie adjusted by frequen
 rmse_results %>% knitr::kable()    
 
 
-## ----estimate_bt,  message=FALSE, warning=FALSE-----------------------------
+## ----estimate_bt,  message=FALSE, warning=FALSE------------------------------------------------------------------------------------------------------------------
 # Estimate RMSE using b_t, b_u, b_i and mu
 b_i <- train_set %>% 
      group_by(movieId) %>% 
@@ -249,6 +242,13 @@ b_t <- train_set %>%
   left_join(b_u, by='userId') %>%
   group_by(day) %>%
   summarize(b_t = mean(rating - mu - b_i - b_u))
+b_t%>% ggplot(aes(b_t)) + 
+  geom_histogram( bins=30, color = "gray") +
+  ggtitle("Histogram time specific effect (b_t)") +
+  labs(subtitle  ="", 
+       x="b_t" , 
+       y="number of ratings", 
+       caption ="source data : train set")
 
 predicted_ratings <-  test_set %>% 
   left_join(b_i, by = "movieId") %>%
@@ -262,7 +262,7 @@ rmse_results <-bind_rows(rmse_results,tibble(method = "Movie,User, and Time Mode
 rmse_results %>% knitr::kable()  
 
 
-## ----estimate_lambda,  message=FALSE, warning=FALSE-------------------------
+## ----estimate_lambda,  message=FALSE, warning=FALSE--------------------------------------------------------------------------------------------------------------
 lambdas <- seq(0,10, 0.25)
 rmses <- sapply(lambdas, function(l){
   b_i <- train_set %>%
@@ -298,7 +298,7 @@ rmse_results %>% knitr::kable()
 
 
 
-## ----validation,  message=FALSE, warning=FALSE------------------------------
+## ----validation,  message=FALSE, warning=FALSE-------------------------------------------------------------------------------------------------------------------
 edx <- edx %>% 
     mutate(day = round_date(as_datetime(timestamp), unit = "day"))  
 
@@ -333,6 +333,6 @@ rmse_results %>% knitr::kable()
 
 
 
-## ----result, message=FALSE, warning=FALSE, echo=FALSE-----------------------
+## ----result, message=FALSE, warning=FALSE, echo=FALSE------------------------------------------------------------------------------------------------------------
 cat("OPTIMAL RMSE:", rmse7)
 
